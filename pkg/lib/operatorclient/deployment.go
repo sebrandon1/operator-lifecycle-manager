@@ -27,6 +27,9 @@ func (c *Client) GetDeployment(namespace, name string) (*appsv1.Deployment, erro
 
 // CreateDeployment creates the Deployment object or Updates if it already exists.
 func (c *Client) CreateDeployment(dep *appsv1.Deployment) (*appsv1.Deployment, error) {
+	if dep == nil {
+		return nil, errors.New("deployment cannot be nil")
+	}
 	klog.V(4).Infof("[CREATE Deployment]: %s:%s", dep.Namespace, dep.Name)
 	createdDep, err := c.AppsV1().Deployments(dep.Namespace).Create(context.TODO(), dep, metav1.CreateOptions{})
 	if apierrors.IsAlreadyExists(err) {
@@ -38,6 +41,9 @@ func (c *Client) CreateDeployment(dep *appsv1.Deployment) (*appsv1.Deployment, e
 
 // DeleteDeployment deletes the Deployment object.
 func (c *Client) DeleteDeployment(namespace, name string, options *metav1.DeleteOptions) error {
+	if options == nil {
+		return errors.New("delete options cannot be nil")
+	}
 	klog.V(4).Infof("[DELETE Deployment]: %s:%s", namespace, name)
 	return c.AppsV1().Deployments(namespace).Delete(context.TODO(), name, *options)
 }
@@ -83,6 +89,9 @@ func (c *Client) PatchDeployment(original, modified *appsv1.Deployment) (*appsv1
 // RollingUpdateDeployment performs a rolling update on the given Deployment. It requires that the
 // Deployment uses the RollingUpdateDeploymentStrategyType update strategy.
 func (c *Client) RollingUpdateDeployment(dep *appsv1.Deployment) (*appsv1.Deployment, bool, error) {
+	if dep == nil {
+		return nil, false, errors.New("deployment cannot be nil")
+	}
 	return c.RollingUpdateDeploymentMigrations(dep.Namespace, dep.Name, Update(dep))
 }
 
@@ -103,6 +112,9 @@ func (c *Client) RollingUpdateDeploymentMigrations(namespace, name string, f Upd
 // RollingPatchDeployment will run any before / after migrations that have been specified in the
 // upgrade options.
 func (c *Client) RollingPatchDeployment(original, modified *appsv1.Deployment) (*appsv1.Deployment, bool, error) {
+	if modified == nil {
+		return nil, false, errors.New("modified cannot be nil")
+	}
 	return c.RollingPatchDeploymentMigrations(modified.Namespace, modified.Name, Patch(original, modified))
 }
 
@@ -183,6 +195,9 @@ func (c *Client) waitForDeploymentRollout(dep *appsv1.Deployment) error {
 // already exists, it will update the Deployment and wait for it to rollout. Returns true if the
 // Deployment was created or updated, false if there was no update.
 func (c *Client) CreateOrRollingUpdateDeployment(dep *appsv1.Deployment) (*appsv1.Deployment, bool, error) {
+	if dep == nil {
+		return nil, false, errors.New("deployment cannot be nil")
+	}
 	klog.V(4).Infof("[CREATE OR ROLLING UPDATE Deployment]: %s:%s", dep.Namespace, dep.Name)
 
 	_, err := c.GetDeployment(dep.Namespace, dep.Name)
