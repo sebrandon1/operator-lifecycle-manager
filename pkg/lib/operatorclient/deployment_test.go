@@ -77,6 +77,17 @@ func TestGetDeployment(t *testing.T) {
 }
 
 func TestCreateDeployment(t *testing.T) {
+	t.Run("nil deployment returns an error without contacting the API", func(t *testing.T) {
+		kube := fake.NewSimpleClientset()
+		c := &Client{Interface: kube}
+
+		result, err := c.CreateDeployment(nil)
+
+		require.Nil(t, result)
+		require.EqualError(t, err, "deployment cannot be nil")
+		require.Empty(t, kube.Actions())
+	})
+
 	for _, tc := range []struct {
 		Name            string
 		Existing        *appsv1.Deployment
@@ -135,6 +146,16 @@ func TestCreateDeployment(t *testing.T) {
 }
 
 func TestDeleteDeployment(t *testing.T) {
+	t.Run("nil delete options returns an error without contacting the API", func(t *testing.T) {
+		kube := fake.NewSimpleClientset()
+		c := &Client{Interface: kube}
+
+		err := c.DeleteDeployment("test-ns", "test-dep", nil)
+
+		require.EqualError(t, err, "delete options cannot be nil")
+		require.Empty(t, kube.Actions())
+	})
+
 	t.Run("deployment deleted successfully", func(t *testing.T) {
 		require := require.New(t)
 
@@ -197,10 +218,10 @@ func TestPatchDeployment(t *testing.T) {
 			ExpectedErrorMsg: "modified cannot be nil",
 		},
 		{
-			Name:     "no changes - empty patch, resourceVersion unchanged",
-			Existing: testDeployment("test-dep", "test-ns"),
-			Original: testDeployment("test-dep", "test-ns"),
-			Modified: testDeployment("test-dep", "test-ns"),
+			Name:            "no changes - empty patch, resourceVersion unchanged",
+			Existing:        testDeployment("test-dep", "test-ns"),
+			Original:        testDeployment("test-dep", "test-ns"),
+			Modified:        testDeployment("test-dep", "test-ns"),
 			ExpectedChanged: false,
 			ExpectedError:   false,
 			ExpectedActions: []clienttesting.Action{
@@ -290,6 +311,30 @@ func TestPatchDeployment(t *testing.T) {
 	}
 }
 
+func TestRollingUpdateDeploymentRejectsNil(t *testing.T) {
+	kube := fake.NewSimpleClientset()
+	c := &Client{Interface: kube}
+
+	result, changed, err := c.RollingUpdateDeployment(nil)
+
+	require.Nil(t, result)
+	require.False(t, changed)
+	require.EqualError(t, err, "deployment cannot be nil")
+	require.Empty(t, kube.Actions())
+}
+
+func TestRollingPatchDeploymentRejectsNilModified(t *testing.T) {
+	kube := fake.NewSimpleClientset()
+	c := &Client{Interface: kube}
+
+	result, changed, err := c.RollingPatchDeployment(nil, nil)
+
+	require.Nil(t, result)
+	require.False(t, changed)
+	require.EqualError(t, err, "modified cannot be nil")
+	require.Empty(t, kube.Actions())
+}
+
 func TestUpdateDeployment(t *testing.T) {
 	for _, tc := range []struct {
 		Name            string
@@ -298,9 +343,9 @@ func TestUpdateDeployment(t *testing.T) {
 		ExpectedChanged bool
 	}{
 		{
-			Name:     "no changes - resourceVersion unchanged",
-			Existing: testDeployment("test-dep", "test-ns"),
-			ToUpdate: testDeployment("test-dep", "test-ns"),
+			Name:            "no changes - resourceVersion unchanged",
+			Existing:        testDeployment("test-dep", "test-ns"),
+			ToUpdate:        testDeployment("test-dep", "test-ns"),
 			ExpectedChanged: false,
 		},
 		{
@@ -337,6 +382,18 @@ func TestUpdateDeployment(t *testing.T) {
 }
 
 func TestCreateOrRollingUpdateDeployment(t *testing.T) {
+	t.Run("nil deployment returns an error without contacting the API", func(t *testing.T) {
+		kube := fake.NewSimpleClientset()
+		c := &Client{Interface: kube}
+
+		result, changed, err := c.CreateOrRollingUpdateDeployment(nil)
+
+		require.Nil(t, result)
+		require.False(t, changed)
+		require.EqualError(t, err, "deployment cannot be nil")
+		require.Empty(t, kube.Actions())
+	})
+
 	for _, tc := range []struct {
 		Name            string
 		Existing        *appsv1.Deployment
