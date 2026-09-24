@@ -290,6 +290,50 @@ func TestPatchDeployment(t *testing.T) {
 	}
 }
 
+func TestRollingPatchDeploymentRejectsNilModified(t *testing.T) {
+	require := require.New(t)
+	kube := fake.NewSimpleClientset()
+	c := &Client{Interface: kube}
+
+	_, changed, err := c.RollingPatchDeployment(testDeployment("test-dep", "test-ns"), nil)
+
+	require.EqualError(err, "modified cannot be nil")
+	require.False(changed)
+	require.Empty(kube.Actions())
+}
+
+func TestRollingPatchDeploymentPatchesModifiedDeployment(t *testing.T) {
+	require := require.New(t)
+	existing := testDeployment("test-dep", "test-ns")
+	kube := fake.NewSimpleClientset(existing)
+	c := &Client{Interface: kube}
+
+	modified := existing.DeepCopy()
+	modified.Spec.Replicas = ptr.To[int32](2)
+
+	updated, _, err := c.RollingPatchDeployment(nil, modified)
+
+	require.NoError(err)
+	require.NotNil(updated)
+	require.Equal(ptr.To[int32](2), updated.Spec.Replicas)
+
+	actions := kube.Actions()
+	require.Len(actions, 2)
+	for _, action := range actions {
+		require.Equal(deploymentsGVR, action.GetResource())
+		require.Equal("test-ns", action.GetNamespace())
+	}
+	require.Equal("get", actions[0].GetVerb())
+	require.Equal("patch", actions[1].GetVerb())
+
+	getAction, ok := actions[0].(clienttesting.GetAction)
+	require.True(ok)
+	require.Equal("test-dep", getAction.GetName())
+	patchAction, ok := actions[1].(clienttesting.PatchAction)
+	require.True(ok)
+	require.Equal("test-dep", patchAction.GetName())
+}
+
 func TestUpdateDeployment(t *testing.T) {
 	for _, tc := range []struct {
 		Name            string

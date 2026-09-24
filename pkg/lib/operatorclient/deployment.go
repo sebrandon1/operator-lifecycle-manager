@@ -103,6 +103,9 @@ func (c *Client) RollingUpdateDeploymentMigrations(namespace, name string, f Upd
 // RollingPatchDeployment will run any before / after migrations that have been specified in the
 // upgrade options.
 func (c *Client) RollingPatchDeployment(original, modified *appsv1.Deployment) (*appsv1.Deployment, bool, error) {
+	if modified == nil {
+		return nil, false, errors.New("modified cannot be nil")
+	}
 	return c.RollingPatchDeploymentMigrations(modified.Namespace, modified.Name, Patch(original, modified))
 }
 
