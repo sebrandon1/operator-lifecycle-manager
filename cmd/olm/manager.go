@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	appsv1 "k8s.io/api/apps/v1"
@@ -25,21 +26,15 @@ import (
 	"github.com/operator-framework/operator-lifecycle-manager/pkg/feature"
 )
 
-var (
-	copiedLabelDoesNotExist labels.Selector
-)
-
-func init() {
-	requirement, err := labels.NewRequirement(operatorsv1alpha1.CopiedLabelKey, selection.DoesNotExist, nil)
-	if err != nil {
-		panic(err)
-	}
-	copiedLabelDoesNotExist = labels.NewSelector().Add(*requirement)
-}
-
 func Manager(ctx context.Context, debug bool) (ctrl.Manager, error) {
 	ctrl.SetLogger(zap.New(zap.UseDevMode(debug)))
 	setupLog := ctrl.Log.WithName("setup").V(1)
+
+	copiedLabelReq, err := labels.NewRequirement(operatorsv1alpha1.CopiedLabelKey, selection.DoesNotExist, nil)
+	if err != nil {
+		return nil, fmt.Errorf("constructing copied-label selector: %w", err)
+	}
+	copiedLabelDoesNotExist := labels.NewSelector().Add(*copiedLabelReq)
 
 	scheme := runtime.NewScheme()
 	if err := metav1.AddMetaToScheme(scheme); err != nil {
