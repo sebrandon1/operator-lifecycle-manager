@@ -152,6 +152,38 @@ func TestNewOperatorGroup(t *testing.T) {
 				},
 			},
 		},
+		{
+			// A target set mixing "" with real namespaces is order-dependent:
+			// when "" is first the group's own namespace is NOT appended.
+			// operatorgroup.go rejects NamespaceAll in spec, so this only
+			// documents defensive behavior; do not change the semantics here.
+			name: "MixedEmptyTargets/LeadingEmpty",
+			in:   buildAPIOperatorGroup("ns", "group", []string{"", "ns-1"}, nil),
+			want: &OperatorGroup{
+				namespace: "ns",
+				name:      "group",
+				targets: NamespaceSet{
+					"":     {},
+					"ns-1": {},
+				},
+				providedAPIs: make(cache.APISet),
+			},
+		},
+		{
+			// When "" is not first, the group's own namespace IS appended.
+			name: "MixedEmptyTargets/TrailingEmpty",
+			in:   buildAPIOperatorGroup("ns", "group", []string{"ns-1", ""}, nil),
+			want: &OperatorGroup{
+				namespace: "ns",
+				name:      "group",
+				targets: NamespaceSet{
+					"ns":   {},
+					"ns-1": {},
+					"":     {},
+				},
+				providedAPIs: make(cache.APISet),
+			},
+		},
 	}
 
 	for _, tt := range tests {
