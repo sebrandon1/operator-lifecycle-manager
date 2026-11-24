@@ -26,6 +26,10 @@ import (
 	"github.com/operator-framework/operator-lifecycle-manager/pkg/lib/queueinformer"
 )
 
+// exit is a seam so tests can observe the restart decision without terminating
+// the test process. In production it is os.Exit.
+var exit = os.Exit
+
 type ApplyConfig[T any] interface {
 	WithLabels(map[string]string) T
 }
@@ -73,7 +77,7 @@ func ObjectLabeler[T metav1.Object, A ApplyConfig[A]](
 					allObjectsLabelled := done()
 					if allObjectsLabelled {
 						logrus.Info("detected that every object is labelled, exiting to re-start the process...")
-						os.Exit(0)
+						exit(0)
 					}
 				}
 				return nil
@@ -126,7 +130,7 @@ func ObjectPatchLabeler(
 					allObjectsLabelled := done()
 					if allObjectsLabelled {
 						logrus.Info("detected that every object is labelled, exiting to re-start the process...")
-						os.Exit(0)
+						exit(0)
 					}
 				}
 				return nil

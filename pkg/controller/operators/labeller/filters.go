@@ -14,6 +14,7 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
+	networkingv1 "k8s.io/api/networking/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -66,11 +67,12 @@ var filters = map[schema.GroupVersionResource]func(metav1.Object) bool{
 		_, ok := object.GetLabels()[reconciler.CatalogSourceLabelKey]
 		return ok
 	},
-	appsv1.SchemeGroupVersion.WithResource("deployments"):         HasOLMOwnerRef,
-	rbacv1.SchemeGroupVersion.WithResource("roles"):               HasOLMOwnerRef,
-	rbacv1.SchemeGroupVersion.WithResource("rolebindings"):        HasOLMOwnerRef,
-	rbacv1.SchemeGroupVersion.WithResource("clusterroles"):        HasOLMOwnerRef,
-	rbacv1.SchemeGroupVersion.WithResource("clusterrolebindings"): HasOLMOwnerRef,
+	appsv1.SchemeGroupVersion.WithResource("deployments"):           HasOLMOwnerRef,
+	networkingv1.SchemeGroupVersion.WithResource("networkpolicies"): HasOLMOwnerRef,
+	rbacv1.SchemeGroupVersion.WithResource("roles"):                 HasOLMOwnerRef,
+	rbacv1.SchemeGroupVersion.WithResource("rolebindings"):          HasOLMOwnerRef,
+	rbacv1.SchemeGroupVersion.WithResource("clusterroles"):          HasOLMOwnerRef,
+	rbacv1.SchemeGroupVersion.WithResource("clusterrolebindings"):   HasOLMOwnerRef,
 	apiextensionsv1.SchemeGroupVersion.WithResource("customresourcedefinitions"): func(object metav1.Object) bool {
 		for key := range object.GetAnnotations() {
 			if strings.HasPrefix(key, alongside.AnnotationPrefix) {
@@ -99,6 +101,7 @@ func gvrRelevant(identity Identity) func(schema.GroupVersionResource) bool {
 			corev1.SchemeGroupVersion.WithResource("pods"),
 			corev1.SchemeGroupVersion.WithResource("configmaps"),
 			batchv1.SchemeGroupVersion.WithResource("jobs"),
+			networkingv1.SchemeGroupVersion.WithResource("networkpolicies"),
 			apiextensionsv1.SchemeGroupVersion.WithResource("customresourcedefinitions"),
 		).Has
 	case IdentityOLMOperator:
