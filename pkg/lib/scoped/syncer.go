@@ -3,7 +3,6 @@ package scoped
 import (
 	"context"
 	"fmt"
-	"reflect"
 
 	"github.com/operator-framework/operator-lifecycle-manager/pkg/controller/install"
 	"github.com/sirupsen/logrus"
@@ -113,7 +112,7 @@ func (s *UserDefinedServiceAccountSyncer) SyncOperatorGroup(in *v1.OperatorGroup
 		return
 	}
 
-	if reflect.DeepEqual(in.Status.ServiceAccountRef, ref) {
+	if serviceAccountRefsEqual(in.Status.ServiceAccountRef, ref) {
 		logger.Debugf("status.serviceAccount is in sync with spec sa=%s", serviceAccountName)
 		return
 	}
@@ -129,6 +128,16 @@ func (s *UserDefinedServiceAccountSyncer) SyncOperatorGroup(in *v1.OperatorGroup
 	}
 
 	return
+}
+
+// serviceAccountRefsEqual reports whether two ServiceAccount references point at
+// the same object. ResourceVersion is deliberately ignored: it changes on every
+// write (including the label apply below) and is not part of identity.
+func serviceAccountRefsEqual(a, b *corev1.ObjectReference) bool {
+	if a == nil || b == nil {
+		return a == b
+	}
+	return a.Name == b.Name && a.Namespace == b.Namespace && a.UID == b.UID
 }
 
 func (s *UserDefinedServiceAccountSyncer) update(in *v1.OperatorGroup, ref *corev1.ObjectReference) (out *v1.OperatorGroup, err error) {
