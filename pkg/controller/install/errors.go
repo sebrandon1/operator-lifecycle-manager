@@ -1,5 +1,7 @@
 package install
 
+import "errors"
+
 const (
 	StrategyErrReasonComponentMissing   = "ComponentMissing"
 	StrategyErrReasonAnnotationsMissing = "AnnotationsMissing"
@@ -43,11 +45,15 @@ func IsErrorUnrecoverable(err error) bool {
 }
 
 func ReasonForError(err error) string {
-	switch t := err.(type) {
-	case StrategyError:
-		return t.Reason
-	case *StrategyError:
-		return t.Reason
+	var value StrategyError
+	if errors.As(err, &value) {
+		return value.Reason
 	}
+
+	var pointer *StrategyError
+	if errors.As(err, &pointer) && pointer != nil {
+		return pointer.Reason
+	}
+
 	return StrategyErrReasonUnknown
 }
