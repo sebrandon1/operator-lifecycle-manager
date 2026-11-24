@@ -1,6 +1,7 @@
 package validatingroundtripper
 
 import (
+	"bytes"
 	"fmt"
 	"io"
 	"net/http"
@@ -50,17 +51,34 @@ func (rt *validatingRoundTripper) decodeProtobuf(body io.Reader) (*unstructured.
 }
 
 func (rt *validatingRoundTripper) decodeRequestBody(req *http.Request) (*unstructured.Unstructured, error) {
-	b, err := req.GetBody()
-	if err != nil {
-		panic(fmt.Errorf("failed to get request body: %w", err))
+	var body io.Reader
+
+	switch {
+	case req.GetBody != nil:
+		b, err := req.GetBody()
+		if err != nil {
+			return nil, fmt.Errorf("failed to get request body: %w", err)
+		}
+		defer b.Close()
+		body = b
+	case req.Body != nil:
+		// The body was not registered as replayable. Read it once and restore
+		// it so the delegate can still send the request.
+		raw, err := io.ReadAll(req.Body)
+		if err != nil {
+			return nil, fmt.Errorf("failed to read request body: %w", err)
+		}
+		req.Body = io.NopCloser(bytes.NewReader(raw))
+		body = bytes.NewReader(raw)
+	default:
+		return nil, fmt.Errorf("request has no body")
 	}
-	defer b.Close()
 
 	switch req.Header.Get("Content-Type") {
 	case "application/vnd.kubernetes.protobuf":
-		return rt.decodeProtobuf(b)
+		return rt.decodeProtobuf(body)
 	default:
-		return rt.decodeYAMLOrJSON(b)
+		return rt.decodeYAMLOrJSON(body)
 	}
 }
 
