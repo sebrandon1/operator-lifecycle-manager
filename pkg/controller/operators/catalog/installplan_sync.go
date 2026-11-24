@@ -5,6 +5,8 @@ import (
 	"errors"
 
 	"github.com/sirupsen/logrus"
+	corev1 "k8s.io/api/core/v1"
+	rbacv1 "k8s.io/api/rbac/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
@@ -36,10 +38,21 @@ func (o *Operator) triggerInstallPlanRetry(obj interface{}) (syncError error) {
 		return
 	}
 
+	// If the RBAC change is attributable to a single service account, only
+	// retry the InstallPlans attenuated to it. When it cannot be attributed
+	// (Role changes, multi-subject bindings) fall back to the old behaviour.
+	affectedSA := affectedServiceAccount(obj)
+
 	isTarget := func(ip *v1alpha1.InstallPlan) bool {
 		// Only an InstallPlan that has failed to install before and only if it
 		// has a reference to a ServiceAccount then
-		return ip.Status.Phase == v1alpha1.InstallPlanPhaseFailed && ip.Status.AttenuatedServiceAccountRef != nil
+		if ip.Status.Phase != v1alpha1.InstallPlanPhaseFailed || ip.Status.AttenuatedServiceAccountRef == nil {
+			return false
+		}
+		if affectedSA != "" {
+			return ip.Status.AttenuatedServiceAccountRef.Name == affectedSA
+		}
+		return true
 	}
 
 	update := func(ip *v1alpha1.InstallPlan) error {
@@ -73,4 +86,24 @@ func (o *Operator) triggerInstallPlanRetry(obj interface{}) (syncError error) {
 
 	syncError = utilerrors.NewAggregate(errs)
 	return
+}
+
+// affectedServiceAccount returns the name of the single service account whose
+// permissions the RBAC change affects, or "" when it cannot be attributed.
+func affectedServiceAccount(obj interface{}) string {
+	switch o := obj.(type) {
+	case *corev1.ServiceAccount:
+		return o.GetName()
+	case *rbacv1.RoleBinding:
+		var names []string
+		for _, subject := range o.Subjects {
+			if subject.Kind == rbacv1.ServiceAccountKind {
+				names = append(names, subject.Name)
+			}
+		}
+		if len(names) == 1 {
+			return names[0]
+		}
+	}
+	return ""
 }
