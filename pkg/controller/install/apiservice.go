@@ -157,6 +157,9 @@ func IsAPIServiceAdoptable(opLister operatorlister.OperatorLister, target *v1alp
 }
 
 func IsAPIServiceAvailable(apiService *apiregistrationv1.APIService) bool {
+	if apiService == nil {
+		return false
+	}
 	for _, c := range apiService.Status.Conditions {
 		if c.Type == apiregistrationv1.Available && c.Status == apiregistrationv1.ConditionTrue {
 			return true
