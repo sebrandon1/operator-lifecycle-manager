@@ -3,6 +3,7 @@ package install
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	log "github.com/sirupsen/logrus"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
@@ -32,8 +33,19 @@ func ValidWebhookRules(rules []admissionregistrationv1.RuleWithOperations) error
 		// protect Admission Webhook resources
 		if contains(apiGroupMap, "admissionregistration.k8s.io") {
 			resourceGroupMap := listToMap(rule.Resources)
-			if contains(resourceGroupMap, "*") || contains(resourceGroupMap, "MutatingWebhookConfiguration") || contains(resourceGroupMap, "ValidatingWebhookConfiguration") {
+			if contains(resourceGroupMap, "*") {
 				return fmt.Errorf("webhook rules cannot include MutatingWebhookConfiguration or ValidatingWebhookConfiguration resources")
+			}
+			for resource := range resourceGroupMap {
+				// Resources are lowercase plural names, optionally with a
+				// /subresource suffix; normalize before comparing so the
+				// CamelCase Kind spelling (singular) cannot slip through either.
+				base := strings.ToLower(strings.SplitN(resource, "/", 2)[0])
+				switch base {
+				case "mutatingwebhookconfigurations", "mutatingwebhookconfiguration",
+					"validatingwebhookconfigurations", "validatingwebhookconfiguration":
+					return fmt.Errorf("webhook rules cannot include MutatingWebhookConfiguration or ValidatingWebhookConfiguration resources")
+				}
 			}
 		}
 	}
