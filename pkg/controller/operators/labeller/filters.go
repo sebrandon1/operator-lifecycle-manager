@@ -125,17 +125,16 @@ func Validate(ctx context.Context, logger *logrus.Logger, metadataClient metadat
 		return metadataClient.Resource(corev1.SchemeGroupVersion.WithResource("configmaps")).Namespace(namespace).Get(ctx, name, metav1.GetOptions{})
 	})
 
-	for _, gvr := range []schema.GroupVersionResource{
+	// RBAC GVRs receive two labels (olm.managed and olm.permissions.hash), so
+	// compliance for them requires both. Do not fold ContentHashFilter into the
+	// per-GVR filter: it excludes hashed objects, which prevents the check below
+	// from ever noticing an object that is missing its hash.
+	hashGVRs := sets.New(
 		rbacv1.SchemeGroupVersion.WithResource("roles"),
 		rbacv1.SchemeGroupVersion.WithResource("rolebindings"),
 		rbacv1.SchemeGroupVersion.WithResource("clusterroles"),
 		rbacv1.SchemeGroupVersion.WithResource("clusterrolebindings"),
-	} {
-		previous := allFilters[gvr]
-		allFilters[gvr] = func(object metav1.Object) bool {
-			return previous != nil && previous(object) && ContentHashFilter(object)
-		}
-	}
+	)
 
 	operatorGroups, err := operatorClient.OperatorsV1().OperatorGroups(metav1.NamespaceAll).List(ctx, metav1.ListOptions{})
 	if err != nil {
@@ -170,7 +169,10 @@ func Validate(ctx context.Context, logger *logrus.Logger, metadataClient metadat
 			}
 			var count int
 			for _, item := range list.Items {
-				if filter(&item) && !hasLabel(&item) {
+				if !filter(&item) {
+					continue
+				}
+				if !hasLabel(&item) || (hashGVRs.Has(gvr) && !hasHashLabel(&item)) {
 					count++
 				}
 			}
@@ -179,9 +181,7 @@ func Validate(ctx context.Context, logger *logrus.Logger, metadataClient metadat
 					"gvr":           gvr.String(),
 					"nonconforming": count,
 				}).Errorf(
-					"found nonconforming items: missing the the required label %q (metadata.labels[\"%s\"]=\"true\"). ",
-					install.OLMManagedLabelKey,
-					install.OLMManagedLabelKey,
+					"found nonconforming items: missing a required label (metadata.labels[%q]=%q)", install.OLMManagedLabelKey, install.OLMManagedLabelValue,
 				)
 			}
 			okLock.Lock()
