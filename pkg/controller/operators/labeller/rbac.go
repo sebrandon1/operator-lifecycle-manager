@@ -3,7 +3,6 @@ package labeller
 import (
 	"context"
 	"fmt"
-	"os"
 
 	"github.com/operator-framework/operator-lifecycle-manager/pkg/controller/registry/resolver"
 	"github.com/operator-framework/operator-lifecycle-manager/pkg/lib/queueinformer"
@@ -46,13 +45,13 @@ func ContentHashLabeler[T metav1.Object, A ApplyConfig[A]](
 				}
 				gvrFullyLabelled := true
 				for _, item := range items {
-					gvrFullyLabelled = gvrFullyLabelled && (!check(item) || hasLabel(item))
+					gvrFullyLabelled = gvrFullyLabelled && (!check(item) || hasHashLabel(item))
 				}
 				if gvrFullyLabelled {
 					allObjectsLabelled := done()
 					if allObjectsLabelled {
 						logrus.Info("detected that every object is labelled, exiting to re-start the process...")
-						os.Exit(0)
+						exit(0)
 					}
 				}
 				return nil
